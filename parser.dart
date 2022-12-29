@@ -8,7 +8,9 @@ enum LineTypes {
 
 enum Style {
   Bold,
+  Big,
   Italic,
+  Plain,
 }
 
 class Parser {
@@ -172,15 +174,17 @@ class Converter {
   }
 
   List<Map<String, dynamic>> partProcess(part, parent) {
-    final Map<String, dynamic> thisObj = {
+    Map<String, dynamic> thisObj = {
       "type": parent["type"] ?? "Plain",
       "content": "",
-      "style": parent["type"] ?? "Plain",
+      "style": parent["style"] ?? "Plain",
     };
     // List, Stringどちらもくる
     if (part is List) {
       if (part.length > 1) {
         thisObj["type"] = "Link";
+        thisObj["content"] = part[0];
+        thisObj = parsePartContent(thisObj);
         List<Map<String, dynamic>> children = [];
         part.forEach((element) {
           final r = partProcess(element, thisObj);
@@ -189,13 +193,35 @@ class Converter {
         return children;
       } else {
         thisObj["type"] = "Link";
-        thisObj["content"] = part;
+        thisObj["content"] = part[0];
+        thisObj = parsePartContent(thisObj);
       }
     }
     if (part is String) {
       thisObj["content"] = part;
+      thisObj = parsePartContent(thisObj);
     }
     return [thisObj];
+  }
+
+  parsePartContent(Map<String, dynamic> obj) {
+    final Map<String, dynamic> thisObj = {
+      "type": obj["type"] ?? "Plain",
+      "content": obj["content"] ?? "",
+      "style": obj["style"] ?? Style.Plain,
+    };
+    Match? bold = RegExp(r'(\*+)\s+(.+)').firstMatch(thisObj["content"]);
+    if (bold != null) {
+      final int boldLevel = bold.group(1)!.length;
+      if (boldLevel > 1) {
+        thisObj["style"] = Style.Big;
+      } else {
+        thisObj["style"] = Style.Bold;
+      }
+      thisObj["content"] = bold.group(2)!;
+      return thisObj;
+    }
+    return thisObj;
   }
 }
 
