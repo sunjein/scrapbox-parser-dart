@@ -178,24 +178,24 @@ class Converter {
     Map<String, dynamic> thisObj = {
       "type": parent["type"] ?? "Plain",
       "content": "",
-      "style": parent["style"] ?? {},
+      "style": parent["style"] ?? Set(),
     };
     // List, Stringどちらもくる
     if (part is List) {
-      if (part.length > 1) {
-        thisObj["content"] = part[0];
-        thisObj = parsePartContent(thisObj);
-        List<Map<String, dynamic>> children = [];
-        part.forEach((element) {
-          final r = partProcess(element, thisObj);
-          children += r;
-        });
-        return children;
-      } else {
+      if (part.length == 1) {
         thisObj["type"] = "Link";
-        thisObj["content"] = part[0];
-        thisObj = parsePartContent(thisObj);
       }
+      if (part[0] is String) thisObj["content"] = part[0];
+      thisObj = parsePartContent(thisObj);
+      List<Map<String, dynamic>> children = [];
+      part.forEach((element) {
+        List<Map<String, dynamic>> r = partProcess(element, thisObj);
+        if (part.length == 1 && element is List) {
+          r[0]["style"] = Style.Bold;
+        }
+        children += r;
+      });
+      return children;
     }
     if (part is String) {
       thisObj["content"] = part;
@@ -204,19 +204,22 @@ class Converter {
     return [thisObj];
   }
 
-  parsePartContent(Map<String, dynamic> obj) {
+  Map<String, dynamic> parsePartContent(Map<String, dynamic> obj) {
+    // 最初の方の解析しかできません。後方に追加する形のブラケット記法があったらリスト全体を渡して処理して返却する処理が必要
+    // [* hello [world] aaa]はOK, [hello [world] aaa!]はだめ
+    // そのため、bold記法ではテキスト部分が何もなくても(.*で0以上の一致)判定するようにしています。
     final Map<String, dynamic> thisObj = {
       "type": obj["type"] ?? "Plain",
       "content": obj["content"] ?? "",
-      "style": obj["style"] ?? {},
+      "style": obj["style"] ?? Set(),
     };
 
     // 太字、大きい字、斜体、打ち消し
     Match? styleRegexMatch =
-        RegExp(r'([\-\*\/_]+)\s+(.+)').firstMatch(thisObj["content"]);
+        RegExp(r'([\-\*\/_]+)\s+(.*)').firstMatch(thisObj["content"]);
     if (styleRegexMatch != null) {
-      final String styleCharacters = styleRegexMatch.group(1)!;
       final Set<Style> styles = {};
+      final String styleCharacters = styleRegexMatch.group(1)!;
       int bold = 0;
       for (String char in styleCharacters.split("")) {
         if (char == "*") bold++;
@@ -226,14 +229,13 @@ class Converter {
       }
       if (bold > 1) {
         styles.add(Style.Big);
-      } else {
+      } else if (bold == 1) {
         styles.add(Style.Bold);
       }
       thisObj["content"] = styleRegexMatch.group(2)!;
       thisObj["style"] = styles;
       return thisObj;
     }
-    thisObj["type"] = "Link";
     return thisObj;
   }
 }
@@ -244,5 +246,9 @@ void main() {
   final parser = Parser();
   final parsed = parser.parse(fileContent.split("\n"));
   final converter = Converter();
+  print("1st");
   converter.convert([parsed[0]]); // コンテンツが長いので意図的にparsed[0]を設定
+  print("");
+  print("2nd");
+  converter.convert([parsed[1]]); // コンテンツが長いので意図的にparsed[0]を設定
 }
