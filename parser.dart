@@ -6,6 +6,12 @@ enum LineTypes {
   Code, // 多分非対応
 }
 
+// enum Types {
+//   Internal,
+//   External,
+//   Icon,
+// }
+
 enum Style {
   Bold,
   Big,
@@ -236,6 +242,16 @@ class Converter {
       thisObj["style"] = styles;
       return thisObj;
     }
+
+    // アイコン記法
+    Match? iconRegexMatch =
+        RegExp(r'(.+)\.icon').firstMatch(thisObj["content"]);
+    if (iconRegexMatch != null) {
+      final String username = iconRegexMatch.group(1)!;
+      thisObj["content"] = username;
+      thisObj["type"] = "Icon";
+      return thisObj;
+    }
     return thisObj;
   }
 }
@@ -246,9 +262,5 @@ void main() {
   final parser = Parser();
   final parsed = parser.parse(fileContent.split("\n"));
   final converter = Converter();
-  print("1st");
   converter.convert([parsed[0]]); // コンテンツが長いので意図的にparsed[0]を設定
-  print("");
-  print("2nd");
-  converter.convert([parsed[1]]); // コンテンツが長いので意図的にparsed[0]を設定
 }
