@@ -10,7 +10,8 @@ enum Style {
   Bold,
   Big,
   Italic,
-  Plain,
+  Underline,
+  Delete,
 }
 
 class Parser {
@@ -177,12 +178,11 @@ class Converter {
     Map<String, dynamic> thisObj = {
       "type": parent["type"] ?? "Plain",
       "content": "",
-      "style": parent["style"] ?? "Plain",
+      "style": parent["style"] ?? {},
     };
     // List, Stringどちらもくる
     if (part is List) {
       if (part.length > 1) {
-        thisObj["type"] = "Link";
         thisObj["content"] = part[0];
         thisObj = parsePartContent(thisObj);
         List<Map<String, dynamic>> children = [];
@@ -208,19 +208,32 @@ class Converter {
     final Map<String, dynamic> thisObj = {
       "type": obj["type"] ?? "Plain",
       "content": obj["content"] ?? "",
-      "style": obj["style"] ?? Style.Plain,
+      "style": obj["style"] ?? {},
     };
-    Match? bold = RegExp(r'(\*+)\s+(.+)').firstMatch(thisObj["content"]);
-    if (bold != null) {
-      final int boldLevel = bold.group(1)!.length;
-      if (boldLevel > 1) {
-        thisObj["style"] = Style.Big;
-      } else {
-        thisObj["style"] = Style.Bold;
+
+    // 太字、大きい字、斜体、打ち消し
+    Match? styleRegexMatch =
+        RegExp(r'([\-\*\/_]+)\s+(.+)').firstMatch(thisObj["content"]);
+    if (styleRegexMatch != null) {
+      final String styleCharacters = styleRegexMatch.group(1)!;
+      final Set<Style> styles = {};
+      int bold = 0;
+      for (String char in styleCharacters.split("")) {
+        if (char == "*") bold++;
+        if (char == "_") styles.add(Style.Underline);
+        if (char == "/") styles.add(Style.Italic);
+        if (char == "-") styles.add(Style.Delete);
       }
-      thisObj["content"] = bold.group(2)!;
+      if (bold > 1) {
+        styles.add(Style.Big);
+      } else {
+        styles.add(Style.Bold);
+      }
+      thisObj["content"] = styleRegexMatch.group(2)!;
+      thisObj["style"] = styles;
       return thisObj;
     }
+    thisObj["type"] = "Link";
     return thisObj;
   }
 }
@@ -231,5 +244,5 @@ void main() {
   final parser = Parser();
   final parsed = parser.parse(fileContent.split("\n"));
   final converter = Converter();
-  converter.convert([parsed[0]]); // 意図的にparsed[0]を設定
+  converter.convert([parsed[0]]); // コンテンツが長いので意図的にparsed[0]を設定
 }
